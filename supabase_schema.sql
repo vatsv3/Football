@@ -23,8 +23,8 @@ CREATE POLICY "Users can update own profile."
   USING ( auth.uid() = id )
   WITH CHECK ( auth.uid() = id );
 
-CREATE POLICY "Admins can update all profiles"
-  ON public.profiles FOR UPDATE
+CREATE POLICY "Admins have full access on profiles"
+  ON public.profiles FOR ALL
   USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
   WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
@@ -41,13 +41,10 @@ CREATE POLICY "Traits are viewable by everyone"
   ON public.traits FOR SELECT
   USING (true);
 
-CREATE POLICY "Admins can insert traits"
-  ON public.traits FOR INSERT
-  WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
-
-CREATE POLICY "Admins can delete traits"
-  ON public.traits FOR DELETE
-  USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
+CREATE POLICY "Admins have full access on traits"
+  ON public.traits FOR ALL
+  USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+  WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
 -- Player Details table
 CREATE TABLE public.players (
@@ -70,8 +67,8 @@ CREATE POLICY "Players can update own details."
   USING ( auth.uid() = id )
   WITH CHECK ( auth.uid() = id );
 
-CREATE POLICY "Admins can update all players"
-  ON public.players FOR UPDATE
+CREATE POLICY "Admins have full access on players"
+  ON public.players FOR ALL
   USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
   WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
@@ -90,6 +87,11 @@ CREATE POLICY "Teams are viewable by everyone."
   ON public.teams FOR SELECT
   USING ( true );
 
+CREATE POLICY "Admins have full access on teams"
+  ON public.teams FOR ALL
+  USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+  WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+
 -- Auctions table
 CREATE TABLE public.auctions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -107,6 +109,11 @@ ALTER TABLE public.auctions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Auctions are viewable by everyone."
   ON public.auctions FOR SELECT
   USING ( true );
+
+CREATE POLICY "Admins have full access on auctions"
+  ON public.auctions FOR ALL
+  USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+  WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
 -- Function to handle new user registration and create profile
 CREATE OR REPLACE FUNCTION public.handle_new_user()

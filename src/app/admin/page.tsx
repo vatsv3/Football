@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Check, Shield } from 'lucide-react';
+import { Plus, Trash2, Check, Shield, User, Edit3, X, Tag } from 'lucide-react';
 
 const POSITIONS = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
 
@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
   
   const [players, setPlayers] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [basePrice, setBasePrice] = useState(10);
   const [durationMinutes, setDurationMinutes] = useState(5);
@@ -25,15 +26,21 @@ export default function AdminDashboard() {
   const [newPrimaryPos, setNewPrimaryPos] = useState('ST');
   const [regMessage, setRegMessage] = useState('');
 
-  // Edit Player State
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editPos, setEditPos] = useState('');
-  const [editStatus, setEditStatus] = useState('');
-
   // Traits Management State
   const [traits, setTraits] = useState<any[]>([]);
   const [newTraitName, setNewTraitName] = useState('');
   const [traitMsg, setTraitMsg] = useState('');
+
+  // Full Edit Modal / Form State
+  const [editingPlayer, setEditingPlayer] = useState<any | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editPrimaryPos, setEditPrimaryPos] = useState('ST');
+  const [editSecondaryPos, setEditSecondaryPos] = useState<string[]>([]);
+  const [editTraits, setEditTraits] = useState<string[]>([]);
+  const [editStatus, setEditStatus] = useState('available');
+  const [editTeamId, setEditTeamId] = useState('');
+  const [editMsg, setEditMsg] = useState('');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -43,6 +50,7 @@ export default function AdminDashboard() {
       } else {
         setUser(session.user);
         fetchPlayers();
+        fetchTeams();
         fetchTraits();
       }
       setLoading(false);
@@ -51,9 +59,9 @@ export default function AdminDashboard() {
   }, [router]);
 
   const fetchPlayers = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('players')
-      .select('*, profiles(username, avatar_url)')
+      .select('*, profiles(username, avatar_url), team:teams(id, name)')
       .order('status', { ascending: false });
       
     if (data) {
@@ -63,11 +71,13 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchTeams = async () => {
+    const { data } = await supabase.from('teams').select('*').order('name', { ascending: true });
+    if (data) setTeams(data);
+  };
+
   const fetchTraits = async () => {
-    const { data } = await supabase
-      .from('traits')
-      .select('*')
-      .order('name', { ascending: true });
+    const { data } = await supabase.from('traits').select('*').order('name', { ascending: true });
     if (data) setTraits(data);
   };
 
@@ -178,22 +188,60 @@ export default function AdminDashboard() {
     }
   };
 
-  const startEditing = (p: any) => {
-    setEditingId(p.id);
-    setEditPos(p.primary_position);
-    setEditStatus(p.status);
+  // Open Edit Player Modal / Drawer
+  const openPlayerEditor = (p: any) => {
+    setEditingPlayer(p);
+    setEditUsername(p.profiles?.username || '');
+    setEditAvatarUrl(p.profiles?.avatar_url || '');
+    setEditPrimaryPos(p.primary_position || 'ST');
+    setEditSecondaryPos(p.secondary_positions || []);
+    setEditTraits(p.specialties || []);
+    setEditStatus(p.status || 'available');
+    setEditTeamId(p.team_id || '');
+    setEditMsg('');
   };
 
-  const saveEdit = async (id: string) => {
+  const toggleEditSecondaryPos = (pos: string) => {
+    if (pos === editPrimaryPos) return;
+    setEditSecondaryPos(prev => 
+      prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]
+    );
+  };
+
+  const toggleEditTrait = (traitName: string) => {
+    setEditTraits(prev => 
+      prev.includes(traitName) ? prev.filter(t => t !== traitName) : [...prev, traitName]
+    );
+  };
+
+  const savePlayerEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlayer) return;
+    setEditMsg('Saving changes...');
+
     try {
+      // 1. Update Profile (Username & Avatar)
+      await supabase.from('profiles').update({
+        username: editUsername,
+        avatar_url: editAvatarUrl
+      }).eq('id', editingPlayer.id);
+
+      // 2. Update Player Details
       await supabase.from('players').update({
-        primary_position: editPos,
-        status: editStatus
-      }).eq('id', id);
-      setEditingId(null);
-      fetchPlayers();
+        primary_position: editPrimaryPos,
+        secondary_positions: editSecondaryPos,
+        specialties: editTraits,
+        status: editStatus,
+        team_id: editTeamId || null
+      }).eq('id', editingPlayer.id);
+
+      setEditMsg('Player updated successfully!');
+      setTimeout(() => {
+        setEditingPlayer(null);
+        fetchPlayers();
+      }, 800);
     } catch (err: any) {
-      alert("Error saving: " + err.message);
+      setEditMsg('Error: ' + err.message);
     }
   };
 
@@ -205,10 +253,10 @@ export default function AdminDashboard() {
     <div className="container animate-in" style={{ marginBottom: '4rem' }}>
       <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Shield size={28} /> Admin Dashboard
+          <h2 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '2rem' }}>
+            <Shield size={32} /> Admin Dashboard & Full Control
           </h2>
-          <p style={{ color: 'var(--text-muted)' }}>Configure auctions, manage player traits, register and update players.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Configure auctions, manage player profiles, traits, teams, and database records.</p>
         </div>
         <button onClick={endLiveAuction} className="btn" style={{ background: '#ef4444', color: 'white' }}>
           Force End Live Auction
@@ -260,7 +308,7 @@ export default function AdminDashboard() {
           </form>
         </div>
 
-        {/* Trait Management Panel */}
+        {/* Global Trait Manager */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Global Trait Manager</h3>
           {traitMsg && <div style={{ padding: '0.75rem', marginBottom: '1rem', backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>{traitMsg}</div>}
@@ -299,55 +347,246 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* Player Management List */}
+      {/* Comprehensive All Player Profiles Section */}
       <div className="glass-panel" style={{ padding: '2rem' }}>
-        <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>All Registered Players</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {players.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)' }}>The pool is empty.</div>
-          ) : (
-            players.map(p => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  {p.profiles?.avatar_url && (
-                    <img src={p.profiles.avatar_url} alt="Avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)' }} />
-                  )}
-                  <div>
-                    <span style={{ fontWeight: 'bold' }}>{p.profiles?.username}</span>
-                    {p.specialties && p.specialties.length > 0 && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                        Traits: {p.specialties.join(', ')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {editingId === p.id ? (
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <select value={editPos} onChange={e => setEditPos(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', background: '#333', color: 'white', border: 'none' }}>
-                      {POSITIONS.map(pos => (
-                        <option key={pos} value={pos}>{pos}</option>
-                      ))}
-                    </select>
-                    <select value={editStatus} onChange={e => setEditStatus(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', background: '#333', color: 'white', border: 'none' }}>
-                      <option value="available">Available</option>
-                      <option value="drafted">Drafted</option>
-                    </select>
-                    <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }} onClick={() => saveEdit(p.id)}>Save</button>
-                    <button className="btn" style={{ padding: '0.5rem 1rem' }} onClick={() => setEditingId(null)}>Cancel</button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{p.primary_position}</span>
-                    <span style={{ color: p.status === 'available' ? '#10b981' : '#ef4444' }}>{p.status}</span>
-                    <button className="btn" style={{ background: '#3b82f6', color: 'white', padding: '0.5rem 1rem' }} onClick={() => startEditing(p)}>Edit</button>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--primary)' }}>All Registered Player Profiles ({players.length})</h3>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Admin Full Edit Rights Enabled</span>
         </div>
+
+        {players.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)' }}>No players registered in database.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            {players.map(p => (
+              <div 
+                key={p.id} 
+                style={{ 
+                  background: 'rgba(0,0,0,0.3)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: 'var(--radius-sm)', 
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                  position: 'relative'
+                }}
+              >
+                {/* Header: Photo & Name & Edit Button */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                    <div style={{
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '50%',
+                      border: '2px solid var(--primary)',
+                      overflow: 'hidden',
+                      background: '#1e293b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {p.profiles?.avatar_url ? (
+                        <img src={p.profiles.avatar_url} alt={p.profiles.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <User size={24} color="var(--text-muted)" />
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: 'white' }}>
+                        {p.profiles?.username || 'Unnamed'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Status: <span style={{ color: p.status === 'drafted' ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>{p.status}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => openPlayerEditor(p)}
+                    className="btn"
+                    style={{ background: 'rgba(59,130,246,0.2)', color: '#60a5fa', border: '1px solid #3b82f6', padding: '0.4rem 0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                  >
+                    <Edit3 size={14} /> Edit
+                  </button>
+                </div>
+
+                {/* Details */}
+                <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Primary Pos: </span>
+                    <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{p.primary_position}</span>
+                  </div>
+
+                  {p.secondary_positions && p.secondary_positions.length > 0 && (
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Secondary Pos: </span>
+                      <span>{p.secondary_positions.join(', ')}</span>
+                    </div>
+                  )}
+
+                  {p.team?.name && (
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Team: </span>
+                      <span style={{ color: '#eab308', fontWeight: 'bold' }}>{p.team.name}</span>
+                    </div>
+                  )}
+
+                  {p.specialties && p.specialties.length > 0 && (
+                    <div style={{ marginTop: '0.2rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>Traits:</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {p.specialties.map((t: string, idx: number) => (
+                          <span key={idx} style={{ padding: '0.15rem 0.5rem', borderRadius: '10px', background: 'rgba(255,255,255,0.1)', fontSize: '0.75rem' }}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Edit Player Modal */}
+      {editingPlayer && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 200,
+          padding: '1rem'
+        }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--primary)' }}>Admin Edit Player: {editingPlayer.profiles?.username}</h3>
+              <button onClick={() => setEditingPlayer(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {editMsg && (
+              <div style={{ padding: '0.75rem', marginBottom: '1rem', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>
+                {editMsg}
+              </div>
+            )}
+
+            <form onSubmit={savePlayerEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Username */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Username / Player Name</label>
+                <input type="text" value={editUsername} onChange={e => setEditUsername(e.target.value)} required style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border)' }} />
+              </div>
+
+              {/* Avatar URL */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Avatar / Photo URL</label>
+                <input type="text" value={editAvatarUrl} onChange={e => setEditAvatarUrl(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border)' }} />
+              </div>
+
+              {/* Primary Position */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Primary Position</label>
+                <select value={editPrimaryPos} onChange={e => setEditPrimaryPos(e.target.value)} style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border)' }}>
+                  {POSITIONS.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Secondary Positions Picker */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Secondary Positions</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {POSITIONS.filter(p => p !== editPrimaryPos).map(p => {
+                    const isSel = editSecondaryPos.includes(p);
+                    return (
+                      <button
+                        type="button"
+                        key={p}
+                        onClick={() => toggleEditSecondaryPos(p)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '16px',
+                          border: isSel ? '1px solid var(--primary)' : '1px solid var(--border)',
+                          background: isSel ? 'rgba(74,222,128,0.2)' : 'transparent',
+                          color: isSel ? 'var(--primary)' : 'var(--text-muted)',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isSel && <Check size={12} />} {p}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Traits Picker */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Traits / Specialties</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {traits.map(t => {
+                    const isSel = editTraits.includes(t.name);
+                    return (
+                      <button
+                        type="button"
+                        key={t.id}
+                        onClick={() => toggleEditTrait(t.name)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '16px',
+                          border: isSel ? '1px solid var(--secondary)' : '1px solid var(--border)',
+                          background: isSel ? 'rgba(59,130,246,0.2)' : 'transparent',
+                          color: isSel ? '#60a5fa' : 'var(--text-muted)',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isSel && <Check size={12} />} {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Status & Team */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Status</label>
+                  <select value={editStatus} onChange={e => setEditStatus(e.target.value)} style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border)' }}>
+                    <option value="available">Available</option>
+                    <option value="drafted">Drafted</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Assigned Team</label>
+                  <select value={editTeamId} onChange={e => setEditTeamId(e.target.value)} style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border)' }}>
+                    <option value="">-- Unassigned --</option>
+                    {teams.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button type="button" className="btn" onClick={() => setEditingPlayer(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

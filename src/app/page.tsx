@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Trophy, Users, Activity, LogOut, User as UserIcon } from 'lucide-react';
+import { Trophy, Users, Activity, Shield, RefreshCw, Layout, User, DollarSign } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -17,17 +16,11 @@ export default function Home() {
       if (!session) {
         router.push('/auth');
       } else {
-        setSession(session);
         setLoading(false);
       }
     };
     checkAuth();
   }, [router]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/auth');
-  };
 
   if (loading) {
     return (
@@ -39,23 +32,7 @@ export default function Home() {
 
   return (
     <div className="container animate-in">
-      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0', borderBottom: '1px solid var(--border)', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', color: 'var(--primary)', fontSize: '1.25rem' }}>
-          <Trophy size={24} /> PRO DRAFT
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{session?.user?.email}</span>
-          <button 
-            onClick={handleSignOut} 
-            className="btn glass-panel" 
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem', color: '#ef4444', border: '1px solid #ef4444' }}
-          >
-            <LogOut size={16} /> Sign Out
-          </button>
-        </div>
-      </nav>
-
-      <header style={{ textAlign: 'center', padding: '2rem 0 4rem' }}>
+      <header style={{ textAlign: 'center', padding: '2rem 0 3rem' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
           <Trophy size={64} color="var(--primary)" />
         </div>
@@ -67,6 +44,7 @@ export default function Home() {
         </p>
         
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/players" className="btn btn-primary" style={{ background: '#3b82f6' }}>Players Directory</Link>
           <Link href="/team" className="btn btn-primary" style={{ background: '#eab308' }}>My Franchise</Link>
           <Link href="/transfers" className="btn btn-primary" style={{ background: '#10b981' }}>Transfer Market</Link>
           <Link href="/auction" className="btn btn-primary">Enter Auction Room</Link>
@@ -76,7 +54,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '2rem', marginBottom: '4rem' }}>
         <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
           <Activity size={32} color="var(--primary)" style={{ marginBottom: '1rem' }} />
           <h3 style={{ marginBottom: '0.5rem' }}>Real-time Bidding</h3>
