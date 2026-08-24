@@ -134,6 +134,10 @@ CREATE POLICY "teams_delete_policy"
 CREATE TABLE IF NOT EXISTS public.auctions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   player_id UUID REFERENCES public.players(id) NOT NULL UNIQUE,
+  host_id UUID REFERENCES public.profiles(id),
+  queue_player_ids TEXT[] DEFAULT '{}',
+  queue_index INT DEFAULT 0,
+  skip_votes TEXT[] DEFAULT '{}',
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'live', 'completed')),
   base_price NUMERIC NOT NULL DEFAULT 10.00,
   current_bid NUMERIC DEFAULT 0,

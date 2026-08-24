@@ -49,12 +49,26 @@ export default function AdminDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/auth');
-      } else {
-        setUser(session.user);
-        fetchPlayers();
-        fetchTeams();
-        fetchTraits();
+        return;
       }
+
+      // Verify admin role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!profile || profile.role !== 'admin') {
+        alert('Access Denied: Only Admins can access the Admin Dashboard.');
+        router.push('/');
+        return;
+      }
+
+      setUser(session.user);
+      fetchPlayers();
+      fetchTeams();
+      fetchTraits();
       setLoading(false);
     };
     checkAuth();
