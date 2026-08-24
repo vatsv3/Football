@@ -3,40 +3,62 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Search, User, Shield, CheckCircle, Tag, Filter } from 'lucide-react';
+import { Search, User, Tag } from 'lucide-react';
 
 export default function PlayersDirectory() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [profilesList, setProfilesList] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosFilter, setSelectedPosFilter] = useState('ALL');
 
   useEffect(() => {
-    const fetchPlayers = async () => {
+    const fetchAllProfilesAndPlayers = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/auth');
         return;
       }
 
-      // Fetch all players with profile info & assigned team info
-      const { data, error } = await supabase
-        .from('players')
-        .select(`
-          *,
-          profiles (username, avatar_url, role),
-          team:teams (id, name)
-        `)
-        .order('primary_position', { ascending: true });
+      // Fetch all registered profiles with left-joined player details & team info
+      const { data: profiles, error: profErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('username', { ascending: true });
 
-      if (data) {
-        setPlayers(data);
+      if (profiles) {
+        // Fetch all players table data
+        const { data: playersData } = await supabase
+          .from('players')
+          .select('*, team:teams(id, name)');
+
+        const playersMap = new Map();
+        if (playersData) {
+          playersData.forEach((p: any) => playersMap.set(p.id, p));
+        }
+
+        // Merge profile & player info
+        const combined = profiles.map((prof: any) => {
+          const pData = playersMap.get(prof.id);
+          return {
+            id: prof.id,
+            username: prof.username,
+            avatar_url: prof.avatar_url,
+            role: prof.role,
+            primary_position: pData?.primary_position || 'ST',
+            secondary_positions: pData?.secondary_positions || [],
+            specialties: pData?.specialties || [],
+            status: pData?.status || 'available',
+            team_name: pData?.team?.name || null
+          };
+        });
+
+        setProfilesList(combined);
       }
       setLoading(false);
     };
 
-    fetchPlayers();
+    fetchAllProfilesAndPlayers();
   }, [router]);
 
   if (loading) {
@@ -44,8 +66,8 @@ export default function PlayersDirectory() {
   }
 
   // Filtering Logic
-  const filteredPlayers = players.filter(p => {
-    const username = p.profiles?.username || '';
+  const filteredPlayers = profilesList.filter(p => {
+    const username = p.username || '';
     const traits = p.specialties || [];
     const matchesSearch = username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       traits.some((t: string) => t.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -65,7 +87,7 @@ export default function PlayersDirectory() {
     <div className="container animate-in" style={{ marginBottom: '4rem' }}>
       <header style={{ marginBottom: '2.5rem' }}>
         <h2 style={{ color: 'var(--primary)', fontSize: '2rem', marginBottom: '0.5rem' }}>Players Directory</h2>
-        <p style={{ color: 'var(--text-muted)' }}>Explore all registered players, their positions, specialties, and team contracts.</p>
+        <p style={{ color: 'var(--text-muted)' }}>Explore all registered players ({profilesList.length}), their positions, specialties, and team contracts.</p>
       </header>
 
       {/* Search and Filters */}
@@ -137,8 +159,7 @@ export default function PlayersDirectory() {
                 flexDirection: 'column', 
                 gap: '1rem',
                 position: 'relative',
-                overflow: 'hidden',
-                transition: 'transform 0.2s ease, border-color 0.2s ease'
+                overflow: 'hidden'
               }}
             >
               {/* Header: Photo & Name */}
@@ -155,8 +176,8 @@ export default function PlayersDirectory() {
                   justifyContent: 'center',
                   flexShrink: 0
                 }}>
-                  {p.profiles?.avatar_url ? (
-                    <img src={p.profiles.avatar_url} alt={p.profiles.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {p.avatar_url ? (
+                    <img src={p.avatar_url} alt={p.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <User size={30} color="var(--text-muted)" />
                   )}
@@ -164,7 +185,7 @@ export default function PlayersDirectory() {
 
                 <div>
                   <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'white' }}>
-                    {p.profiles?.username || 'Unknown Player'}
+                    {p.username || 'Registered Player'}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
                     <span style={{ 
@@ -184,7 +205,7 @@ export default function PlayersDirectory() {
                       fontWeight: 'bold',
                       textTransform: 'uppercase'
                     }}>
-                      {p.status === 'drafted' ? (p.team?.name ? `Drafted (${p.team.name})` : 'Drafted') : 'Available'}
+                      {p.status === 'drafted' ? (p.team_name ? `Drafted (${p.team_name})` : 'Drafted') : 'Available'}
                     </span>
                   </div>
                 </div>

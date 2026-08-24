@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Camera, Check, Plus } from 'lucide-react';
+import { Camera, Check, User } from 'lucide-react';
 
 const POSITIONS = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
 
@@ -14,6 +14,7 @@ export default function RegisterPlayer() {
   const [user, setUser] = useState<any>(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [primaryPos, setPrimaryPos] = useState('ST');
   const [secondaryPos, setSecondaryPos] = useState<string[]>([]);
@@ -29,14 +30,16 @@ export default function RegisterPlayer() {
       }
       setUser(session.user);
 
-      // 1. Fetch profile avatar
+      // 1. Fetch profile (username & avatar)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('avatar_url')
+        .select('username, avatar_url')
         .eq('id', session.user.id)
         .single();
-      if (profile?.avatar_url) {
-        setAvatarUrl(profile.avatar_url);
+
+      if (profile) {
+        if (profile.username) setUsername(profile.username);
+        if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
       }
 
       // 2. Fetch traits from admin traits table
@@ -59,7 +62,16 @@ export default function RegisterPlayer() {
         if (player.primary_position) setPrimaryPos(player.primary_position);
         if (player.secondary_positions) setSecondaryPos(player.secondary_positions);
         if (player.specialties) setSelectedTraits(player.specialties);
-        setMessage({ type: 'info', text: 'You are already registered. You can update your details below.' });
+        setMessage({ type: 'info', text: 'You are registered! You can update your profile details below.' });
+      } else {
+        // Auto-create initial default player record so user appears in pool right away
+        await supabase.from('players').insert({
+          id: session.user.id,
+          primary_position: 'ST',
+          secondary_positions: [],
+          specialties: [],
+          status: 'available'
+        });
       }
 
       setLoading(false);
@@ -68,7 +80,7 @@ export default function RegisterPlayer() {
   }, [router]);
 
   const toggleSecondaryPos = (pos: string) => {
-    if (pos === primaryPos) return; // cannot be both primary and secondary
+    if (pos === primaryPos) return;
     setSecondaryPos(prev => 
       prev.includes(pos) ? prev.filter(p => p !== pos) : [...prev, pos]
     );
@@ -84,7 +96,6 @@ export default function RegisterPlayer() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Convert file to Base64 for instant preview & persistence
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
@@ -100,21 +111,26 @@ export default function RegisterPlayer() {
     setMessage({ type: '', text: '' });
 
     try {
-      // Update avatar in profiles table
-      if (avatarUrl) {
-        await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
+      // 1. Update username and avatar in profiles table
+      if (username.trim()) {
+        const { error: profileErr } = await supabase.from('profiles').update({
+          username: username.trim(),
+          avatar_url: avatarUrl
+        }).eq('id', user.id);
+        if (profileErr) throw profileErr;
       }
 
-      // Upsert player details
+      // 2. Upsert player details
       const { error } = await supabase.from('players').upsert({
         id: user.id,
         primary_position: primaryPos,
         secondary_positions: secondaryPos,
         specialties: selectedTraits,
+        status: 'available'
       });
 
       if (error) throw error;
-      setMessage({ type: 'success', text: 'Profile saved successfully!' });
+      setMessage({ type: 'success', text: 'Player profile & name saved successfully!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Failed to save profile.' });
     } finally {
@@ -169,6 +185,21 @@ export default function RegisterPlayer() {
             Upload Profile Picture
             <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
           </label>
+        </div>
+
+        {/* Player Name / Display Name Input */}
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+            Full Name / Player Username
+          </label>
+          <input
+            type="text"
+            placeholder="Enter your player name"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border)' }}
+          />
         </div>
 
         {/* Primary Position */}
