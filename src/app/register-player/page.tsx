@@ -187,7 +187,7 @@ export default function RegisterPlayer() {
           borderRadius: 'var(--radius-sm)',
           backgroundColor: message.type === 'error' ? 'rgba(239,68,68,0.1)' : message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
           border: `1px solid ${message.type === 'error' ? '#ef4444' : message.type === 'success' ? '#10b981' : '#3b82f6'}`,
-          color: message.type === 'error' ? '#ef4444' : message.type === 'success' ? '#10b981' : '#3b82f6'},
+          color: message.type === 'error' ? '#ef4444' : message.type === 'success' ? '#10b981' : '#3b82f6',
           fontSize: '0.9rem'
         }}>
           {message.text}
