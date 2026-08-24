@@ -222,7 +222,7 @@ export default function PlayersDirectory() {
                     ))}
                   </div>
                 ) : (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', italic: 'true' }}>No traits assigned</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No traits assigned</span>
                 )}
               </div>
 

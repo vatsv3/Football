@@ -64,7 +64,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="glass-panel" style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', marginBottom: '2rem', sticky: 'top', top: 0, zIndex: 100 }}>
+    <header className="glass-panel" style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', marginBottom: '2rem', position: 'sticky', top: 0, zIndex: 100 }}>
       <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', flexWrap: 'wrap', gap: '1rem' }}>
         
         {/* Logo */}
