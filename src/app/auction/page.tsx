@@ -45,10 +45,11 @@ export default function AuctionRoom() {
     // Subscribe to realtime updates on auctions table
     const auctionChannel = supabase.channel('public:auctions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'auctions' }, (payload) => {
-        if (payload.new.status === 'live') {
+        const newRow = payload.new as any;
+        if (newRow?.status === 'live') {
           // A new auction started or was updated
           fetchLiveAuction();
-        } else if (payload.new.status === 'completed' && auction?.id === payload.new.id) {
+        } else if (newRow?.status === 'completed' && auction?.id === newRow?.id) {
           setAuction(null); // Auction ended
         }
       })
