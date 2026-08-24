@@ -15,7 +15,7 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, password, username, primary_position, secondary_positions, specialties } = body;
+    const { email, password, username, primary_position, secondary_positions, specialties, base_price } = body;
 
     // Check if service role key is configured
     if (!serviceRoleKey) {
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       primary_position,
       secondary_positions: secondary_positions || [],
       specialties: specialties || [],
+      base_price: base_price ? Number(base_price) : 10,
       status: 'available'
     });
 

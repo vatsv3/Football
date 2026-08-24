@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS public.players (
   primary_position TEXT NOT NULL,
   secondary_positions TEXT[] DEFAULT '{}',
   specialties TEXT[] DEFAULT '{}',
+  base_price NUMERIC DEFAULT 10.00,
   status TEXT DEFAULT 'available' CHECK (status IN ('available', 'drafted')),
   team_id UUID
 );

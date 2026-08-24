@@ -24,6 +24,7 @@ export default function AdminDashboard() {
   const [newPassword, setNewPassword] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPrimaryPos, setNewPrimaryPos] = useState('ST');
+  const [newBasePriceVal, setNewBasePriceVal] = useState(10);
   const [regMessage, setRegMessage] = useState('');
 
   // Traits Management State
@@ -38,6 +39,7 @@ export default function AdminDashboard() {
   const [editPrimaryPos, setEditPrimaryPos] = useState('ST');
   const [editSecondaryPos, setEditSecondaryPos] = useState<string[]>([]);
   const [editTraits, setEditTraits] = useState<string[]>([]);
+  const [editBasePriceVal, setEditBasePriceVal] = useState<number>(10);
   const [editStatus, setEditStatus] = useState('available');
   const [editTeamId, setEditTeamId] = useState('');
   const [editMsg, setEditMsg] = useState('');
@@ -196,6 +198,7 @@ export default function AdminDashboard() {
     setEditPrimaryPos(p.primary_position || 'ST');
     setEditSecondaryPos(p.secondary_positions || []);
     setEditTraits(p.specialties || []);
+    setEditBasePriceVal(p.base_price || 10);
     setEditStatus(p.status || 'available');
     setEditTeamId(p.team_id || '');
     setEditMsg('');
@@ -231,6 +234,7 @@ export default function AdminDashboard() {
         primary_position: editPrimaryPos,
         secondary_positions: editSecondaryPos,
         specialties: editTraits,
+        base_price: editBasePriceVal,
         status: editStatus,
         team_id: editTeamId || null
       }).eq('id', editingPlayer.id);
@@ -500,6 +504,19 @@ export default function AdminDashboard() {
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Fixed Base Price */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fixed Base Price ($ Millions)</label>
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={editBasePriceVal} 
+                  onChange={e => setEditBasePriceVal(Number(e.target.value))} 
+                  required 
+                  style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border)' }} 
+                />
               </div>
 
               {/* Secondary Positions Picker */}
