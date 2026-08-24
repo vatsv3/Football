@@ -110,6 +110,14 @@ CREATE POLICY "Auctions are viewable by everyone."
   ON public.auctions FOR SELECT
   USING ( true );
 
+CREATE POLICY "Authenticated users can insert auctions"
+  ON public.auctions FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Authenticated users can update auctions"
+  ON public.auctions FOR UPDATE
+  USING (auth.uid() IS NOT NULL);
+
 CREATE POLICY "Admins have full access on auctions"
   ON public.auctions FOR ALL
   USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
