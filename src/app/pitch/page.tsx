@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 // Draggable Player Component
 function DraggablePlayer({ player, x, y }: { player: any, x: number, y: number }) {
@@ -33,9 +34,9 @@ function DraggablePlayer({ player, x, y }: { player: any, x: number, y: number }
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      {player.number}
+      {player.primary_position}
       <div style={{ position: 'absolute', bottom: '-25px', whiteSpace: 'nowrap', fontSize: '12px', color: 'white', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px' }}>
-        {player.name}
+        {player.profiles?.username}
       </div>
     </div>
   );
@@ -61,11 +62,9 @@ function DroppablePitch({ children }: { children: React.ReactNode }) {
         backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(255,255,255,0.05) 50px, rgba(255,255,255,0.05) 100px)'
       }}
     >
-      {/* Pitch Markings (Simplified) */}
+      {/* Pitch Markings */}
       <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: '2px', background: 'rgba(255,255,255,0.5)', transform: 'translateX(-50%)' }} />
       <div style={{ position: 'absolute', top: '50%', left: '50%', width: '100px', height: '100px', border: '2px solid rgba(255,255,255,0.5)', borderRadius: '50%', transform: 'translate(-50%, -50%)' }} />
-      
-      {/* Penalty boxes */}
       <div style={{ position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '15%', border: '2px solid rgba(255,255,255,0.5)', borderLeft: 'none' }} />
       <div style={{ position: 'absolute', right: 0, top: '20%', bottom: '20%', width: '15%', border: '2px solid rgba(255,255,255,0.5)', borderRight: 'none' }} />
       
@@ -75,14 +74,35 @@ function DroppablePitch({ children }: { children: React.ReactNode }) {
 }
 
 export default function InteractivePitch() {
-  // Initial mocked positions for 5-a-side
-  const [players, setPlayers] = useState([
-    { id: '1', name: 'Alisson', number: 1, pos: 'GK', x: 50, y: 275 },
-    { id: '2', name: 'Van Dijk', number: 4, pos: 'CB', x: 200, y: 150 },
-    { id: '3', name: 'Trent', number: 66, pos: 'RB', x: 200, y: 400 },
-    { id: '4', name: 'Mac Allister', number: 10, pos: 'CM', x: 400, y: 275 },
-    { id: '5', name: 'Salah', number: 11, pos: 'ST', x: 600, y: 275 },
-  ]);
+  const router = useRouter();
+  const [players, setPlayers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTeamPlayers = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/auth');
+        return;
+      }
+      
+      const { data: team } = await supabase.from('teams').select('id').eq('manager_id', session.user.id).single();
+      if (team) {
+        const { data: teamPlayers } = await supabase.from('players').select('*, profiles(username)').eq('team_id', team.id);
+        if (teamPlayers) {
+          // Initialize coordinates if not set in DB (for MVP we'll just keep coordinates in memory, but could save to DB)
+          const positionedPlayers = teamPlayers.map((p, i) => ({
+            ...p,
+            x: 50 + (i * 60),
+            y: 50 + (i * 30)
+          }));
+          setPlayers(positionedPlayers);
+        }
+      }
+      setLoading(false);
+    };
+    fetchTeamPlayers();
+  }, [router]);
 
   const handleDragEnd = (event: any) => {
     const { active, delta } = event;

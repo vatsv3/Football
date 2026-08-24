@@ -16,6 +16,8 @@ export default function Home() {
         </p>
         
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/team" className="btn btn-primary" style={{ background: '#eab308' }}>My Franchise</Link>
+          <Link href="/transfers" className="btn btn-primary" style={{ background: '#10b981' }}>Transfer Market</Link>
           <Link href="/auction" className="btn btn-primary">Enter Auction Room</Link>
           <Link href="/pitch" className="btn btn-primary" style={{ background: 'var(--secondary)', boxShadow: '0 0 15px rgba(59,130,246,0.4)' }}>Tactical Board</Link>
           <Link href="/register-player" className="btn glass-panel" style={{ color: 'white', textDecoration: 'none' }}>Player Registration</Link>

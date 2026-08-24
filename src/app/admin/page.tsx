@@ -68,9 +68,38 @@ export default function AdminDashboard() {
       if (error) throw error;
       
       setMessage('Auction started successfully! Players will see it live.');
-      router.push('/auction'); // redirect admin to watch it
+      fetchPlayers(); // refresh list
     } catch (err: any) {
       setMessage('Failed to start auction: ' + err.message);
+    }
+  };
+
+  const endLiveAuction = async () => {
+    setMessage('');
+    try {
+      // Find the live auction
+      const { data: auction } = await supabase.from('auctions').select('*').eq('status', 'live').single();
+      if (!auction) throw new Error('No live auction found.');
+      
+      // Update auction to completed
+      await supabase.from('auctions').update({ status: 'completed' }).eq('id', auction.id);
+      
+      // If someone bid, assign player to team and deduct budget
+      if (auction.highest_bidder_id) {
+        await supabase.from('players').update({ team_id: auction.highest_bidder_id, status: 'drafted' }).eq('id', auction.player_id);
+        
+        // Deduct budget (ignoring race conditions for MVP)
+        const { data: team } = await supabase.from('teams').select('budget').eq('id', auction.highest_bidder_id).single();
+        if (team) {
+          await supabase.from('teams').update({ budget: team.budget - auction.current_bid }).eq('id', auction.highest_bidder_id);
+        }
+        setMessage('Auction ended. Player assigned to winning team!');
+      } else {
+        setMessage('Auction ended with no bids.');
+      }
+      fetchPlayers();
+    } catch (err: any) {
+      setMessage('Failed to end auction: ' + err.message);
     }
   };
 
@@ -78,9 +107,14 @@ export default function AdminDashboard() {
 
   return (
     <div className="container animate-in">
-      <header style={{ marginBottom: '3rem' }}>
-        <h2 style={{ color: 'var(--primary)' }}>Admin Dashboard</h2>
-        <p style={{ color: 'var(--text-muted)' }}>Configure and launch live auctions.</p>
+      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ color: 'var(--primary)' }}>Admin Dashboard</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Configure and launch live auctions.</p>
+        </div>
+        <button onClick={endLiveAuction} className="btn" style={{ background: '#ef4444', color: 'white' }}>
+          Force End Live Auction
+        </button>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
