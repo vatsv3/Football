@@ -1,69 +1,41 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import Link from 'next/link';
+import { Trophy, Users, Activity } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="container animate-in">
+      <header style={{ textAlign: 'center', padding: '4rem 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+          <Trophy size={64} color="var(--primary)" />
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <h1 style={{ fontSize: '4rem', marginBottom: '1rem', color: 'var(--primary)' }}>
+          PRO DRAFT
+        </h1>
+        <p style={{ fontSize: '1.25rem', color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto 2.5rem' }}>
+          The ultimate real-time football auction simulation. Draft your squad, manage your budget, and build the perfect formation.
+        </p>
+        
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link href="/auction" className="btn btn-primary">Enter Auction Room</Link>
+          <Link href="/pitch" className="btn btn-primary" style={{ background: 'var(--secondary)', boxShadow: '0 0 15px rgba(59,130,246,0.4)' }}>Tactical Board</Link>
+          <Link href="/register-player" className="btn glass-panel" style={{ color: 'white', textDecoration: 'none' }}>Player Registration</Link>
+          <Link href="/admin" className="btn glass-panel" style={{ color: '#ef4444', border: '1px solid #ef4444', textDecoration: 'none' }}>Admin Panel</Link>
         </div>
-      </main>
+      </header>
+
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '4rem' }}>
+        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+          <Activity size={32} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+          <h3 style={{ marginBottom: '0.5rem' }}>Real-time Bidding</h3>
+          <p style={{ color: 'var(--text-muted)' }}>Experience the thrill of live auctions with instant WebSocket synchronization.</p>
+        </div>
+        
+        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+          <Users size={32} color="var(--secondary)" style={{ marginBottom: '1rem' }} />
+          <h3 style={{ marginBottom: '0.5rem' }}>Interactive Pitch</h3>
+          <p style={{ color: 'var(--text-muted)' }}>Drag and drop your drafted players into custom formations, from 5-a-side to full 11s.</p>
+        </div>
+      </section>
     </div>
   );
 }
