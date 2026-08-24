@@ -22,6 +22,11 @@ CREATE POLICY "Users can update own profile."
   USING ( auth.uid() = id )
   WITH CHECK ( auth.uid() = id );
 
+CREATE POLICY "Admins can update all profiles"
+  ON public.profiles FOR UPDATE
+  USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+  WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+
 -- Player Details table
 CREATE TABLE public.players (
   id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -42,6 +47,11 @@ CREATE POLICY "Players can update own details."
   ON public.players FOR UPDATE
   USING ( auth.uid() = id )
   WITH CHECK ( auth.uid() = id );
+
+CREATE POLICY "Admins can update all players"
+  ON public.players FOR UPDATE
+  USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
+  WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
 
 -- Teams table
 CREATE TABLE public.teams (
