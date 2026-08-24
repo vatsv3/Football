@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Camera, Check, User } from 'lucide-react';
+import { Camera, Check, User, Shield, Trophy, DollarSign } from 'lucide-react';
 
 const POSITIONS = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
 
@@ -12,6 +12,8 @@ export default function RegisterPlayer() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('player');
+  const [myTeamName, setMyTeamName] = useState<string | null>(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const [username, setUsername] = useState('');
@@ -19,6 +21,7 @@ export default function RegisterPlayer() {
   const [primaryPos, setPrimaryPos] = useState('ST');
   const [secondaryPos, setSecondaryPos] = useState<string[]>([]);
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
+  const [basePriceVal, setBasePriceVal] = useState<number>(10);
   const [availableTraits, setAvailableTraits] = useState<any[]>([]);
 
   useEffect(() => {
@@ -30,16 +33,17 @@ export default function RegisterPlayer() {
       }
       setUser(session.user);
 
-      // 1. Fetch profile (username & avatar)
+      // 1. Fetch profile (username, avatar, role)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, avatar_url')
+        .select('username, avatar_url, role')
         .eq('id', session.user.id)
         .single();
 
       if (profile) {
         if (profile.username) setUsername(profile.username);
         if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+        if (profile.role) setUserRole(profile.role);
       }
 
       // 2. Fetch traits from admin traits table
@@ -51,25 +55,38 @@ export default function RegisterPlayer() {
         setAvailableTraits(traitsData);
       }
 
-      // 3. Fetch existing player profile if exists
+      // 3. Fetch user's team if manager
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('manager_id', session.user.id)
+        .maybeSingle();
+      if (teamData?.name) {
+        setMyTeamName(teamData.name);
+      }
+
+      // 4. Fetch existing player record
       const { data: player } = await supabase
         .from('players')
-        .select('*')
+        .select('*, team:teams(name)')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (player) {
         if (player.primary_position) setPrimaryPos(player.primary_position);
         if (player.secondary_positions) setSecondaryPos(player.secondary_positions);
         if (player.specialties) setSelectedTraits(player.specialties);
-        setMessage({ type: 'info', text: 'You are registered! You can update your profile details below.' });
+        if (player.base_price) setBasePriceVal(player.base_price);
+        if (player.team?.name) setMyTeamName(player.team.name);
+        setMessage({ type: 'info', text: 'You are viewing your Profile. You can update any of your details below.' });
       } else {
-        // Auto-create initial default player record so user appears in pool right away
+        // Create initial default player record
         await supabase.from('players').insert({
           id: session.user.id,
           primary_position: 'ST',
           secondary_positions: [],
           specialties: [],
+          base_price: 10,
           status: 'available'
         });
       }
@@ -111,7 +128,7 @@ export default function RegisterPlayer() {
     setMessage({ type: '', text: '' });
 
     try {
-      // 1. Update username and avatar in profiles table
+      // 1. Update username & avatar in profiles table
       if (username.trim()) {
         const { error: profileErr } = await supabase.from('profiles').update({
           username: username.trim(),
@@ -126,11 +143,12 @@ export default function RegisterPlayer() {
         primary_position: primaryPos,
         secondary_positions: secondaryPos,
         specialties: selectedTraits,
+        base_price: basePriceVal,
         status: 'available'
       });
 
       if (error) throw error;
-      setMessage({ type: 'success', text: 'Player profile & name saved successfully!' });
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Failed to save profile.' });
     } finally {
@@ -139,13 +157,29 @@ export default function RegisterPlayer() {
   };
 
   if (loading) {
-    return <div className="container" style={{ textAlign: 'center', marginTop: '4rem' }}>Loading player profile...</div>;
+    return <div className="container" style={{ textAlign: 'center', marginTop: '4rem' }}>Loading My Profile...</div>;
   }
 
   return (
-    <div className="container animate-in" style={{ maxWidth: '650px', marginTop: '2rem', marginBottom: '4rem' }}>
-      <h2 style={{ marginBottom: '1.5rem', color: 'var(--primary)', textAlign: 'center' }}>Player Profile Registration</h2>
-      
+    <div className="container animate-in" style={{ maxWidth: '650px', marginTop: '1rem', marginBottom: '4rem' }}>
+      <h2 style={{ marginBottom: '1rem', color: 'var(--primary)', textAlign: 'center', fontSize: '2rem' }}>
+        My Profile & Settings
+      </h2>
+
+      {/* Role & Franchise Info Badge */}
+      <div className="glass-panel" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+          <Shield size={18} color="var(--primary)" />
+          <span>Role: <strong style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{userRole}</strong></span>
+        </div>
+        {myTeamName && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <Trophy size={18} color="#eab308" />
+            <span>Franchise: <strong style={{ color: '#eab308' }}>{myTeamName}</strong></span>
+          </div>
+        )}
+      </div>
+
       {message.text && (
         <div style={{ 
           padding: '1rem', 
@@ -153,19 +187,20 @@ export default function RegisterPlayer() {
           borderRadius: 'var(--radius-sm)',
           backgroundColor: message.type === 'error' ? 'rgba(239,68,68,0.1)' : message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
           border: `1px solid ${message.type === 'error' ? '#ef4444' : message.type === 'success' ? '#10b981' : '#3b82f6'}`,
-          color: message.type === 'error' ? '#ef4444' : message.type === 'success' ? '#10b981' : '#3b82f6'
+          color: message.type === 'error' ? '#ef4444' : message.type === 'success' ? '#10b981' : '#3b82f6'},
+          fontSize: '0.9rem'
         }}>
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
         
         {/* Avatar Upload */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <div style={{ 
-            width: '100px', 
-            height: '100px', 
+            width: '110px', 
+            height: '110px', 
             borderRadius: '50%', 
             border: '3px solid var(--primary)', 
             overflow: 'hidden', 
@@ -178,23 +213,23 @@ export default function RegisterPlayer() {
             {avatarUrl ? (
               <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <Camera size={36} color="var(--text-muted)" />
+              <Camera size={40} color="var(--text-muted)" />
             )}
           </div>
-          <label className="btn glass-panel" style={{ cursor: 'pointer', fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
-            Upload Profile Picture
+          <label className="btn glass-panel" style={{ cursor: 'pointer', fontSize: '0.875rem', padding: '0.5rem 1.25rem' }}>
+            Change Profile Picture
             <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
           </label>
         </div>
 
-        {/* Player Name / Display Name Input */}
+        {/* Display Name */}
         <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-            Full Name / Player Username
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>
+            Player / Display Name
           </label>
           <input
             type="text"
-            placeholder="Enter your player name"
+            placeholder="Enter your name"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
@@ -204,7 +239,7 @@ export default function RegisterPlayer() {
 
         {/* Primary Position */}
         <div>
-          <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>
             Primary Position
           </label>
           <select 
@@ -222,10 +257,25 @@ export default function RegisterPlayer() {
           </select>
         </div>
 
-        {/* Secondary Positions Picker (Clickable Badges) */}
+        {/* Fixed Base Price */}
         <div>
-          <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-            Secondary Positions (Click to Select)
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>
+            Fixed Base Price ($ Millions)
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={basePriceVal}
+            onChange={(e) => setBasePriceVal(Number(e.target.value))}
+            required
+            style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border)' }}
+          />
+        </div>
+
+        {/* Secondary Positions Picker (Touch-friendly Badges) */}
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>
+            Secondary Positions (Tap to Toggle)
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {POSITIONS.filter(p => p !== primaryPos).map(p => {
@@ -237,6 +287,7 @@ export default function RegisterPlayer() {
                   onClick={() => toggleSecondaryPos(p)}
                   style={{
                     padding: '0.5rem 1rem',
+                    minHeight: '44px',
                     borderRadius: '20px',
                     border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border)',
                     background: isSelected ? 'rgba(74,222,128,0.2)' : 'rgba(0,0,0,0.2)',
@@ -245,20 +296,21 @@ export default function RegisterPlayer() {
                     fontWeight: isSelected ? 'bold' : 'normal',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.25rem',
-                    transition: 'all 0.2s ease'
+                    gap: '0.3rem',
+                    transition: 'all 0.2s ease',
+                    fontSize: '0.9rem'
                   }}
                 >
-                  {isSelected && <Check size={14} />} {p}
+                  {isSelected && <Check size={16} />} {p}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Admin Managed Traits / Specialties */}
+        {/* Traits & Specialties */}
         <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+          <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.95rem' }}>
             Specialties & Traits
           </label>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
@@ -278,6 +330,7 @@ export default function RegisterPlayer() {
                     onClick={() => toggleTrait(trait.name)}
                     style={{
                       padding: '0.5rem 1rem',
+                      minHeight: '44px',
                       borderRadius: '20px',
                       border: isSelected ? '2px solid var(--secondary)' : '1px solid var(--border)',
                       background: isSelected ? 'rgba(59,130,246,0.25)' : 'rgba(0,0,0,0.2)',
@@ -286,11 +339,12 @@ export default function RegisterPlayer() {
                       fontWeight: isSelected ? 'bold' : 'normal',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.25rem',
-                      transition: 'all 0.2s ease'
+                      gap: '0.3rem',
+                      transition: 'all 0.2s ease',
+                      fontSize: '0.9rem'
                     }}
                   >
-                    {isSelected && <Check size={14} />} {trait.name}
+                    {isSelected && <Check size={16} />} {trait.name}
                   </button>
                 );
               })}
@@ -298,8 +352,8 @@ export default function RegisterPlayer() {
           )}
         </div>
 
-        <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }} disabled={submitting}>
-          {submitting ? 'Saving Profile...' : 'Save Profile'}
+        <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', width: '100%', fontSize: '1.1rem' }} disabled={submitting}>
+          {submitting ? 'Saving Profile...' : 'Save Profile Changes'}
         </button>
       </form>
     </div>
