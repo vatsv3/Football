@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -8,11 +8,30 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState(''); // for registration
+  const [username, setUsername] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
   const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push('/');
+      }
+    };
+    checkSession();
+
+    // Check remembered email
+    const savedEmail = localStorage.getItem('remembered_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +45,13 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
+
+        if (rememberMe) {
+          localStorage.setItem('remembered_email', email);
+        } else {
+          localStorage.removeItem('remembered_email');
+        }
+
         router.push('/');
       } else {
         const { error } = await supabase.auth.signUp({
@@ -39,8 +65,19 @@ export default function AuthPage() {
           }
         });
         if (error) throw error;
-        alert('Registration successful! Please check your email to verify (if enabled) or just login.');
-        setIsLogin(true);
+
+        if (rememberMe) {
+          localStorage.setItem('remembered_email', email);
+        }
+
+        alert('Registration successful! Logging you in...');
+        // Try logging in right away
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (!signInErr) {
+          router.push('/register-player');
+        } else {
+          setIsLogin(true);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication.');
@@ -96,6 +133,17 @@ export default function AuthPage() {
               style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
               required
             />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            <input 
+              type="checkbox" 
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+            />
+            <label htmlFor="rememberMe" style={{ cursor: 'pointer' }}>Remember me</label>
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }} disabled={loading}>

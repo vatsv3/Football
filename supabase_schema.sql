@@ -8,6 +8,7 @@ CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'manager', 'player')) DEFAULT 'player',
+  avatar_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -26,6 +27,27 @@ CREATE POLICY "Admins can update all profiles"
   ON public.profiles FOR UPDATE
   USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' )
   WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+
+-- Traits table
+CREATE TABLE public.traits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.traits ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Traits are viewable by everyone"
+  ON public.traits FOR SELECT
+  USING (true);
+
+CREATE POLICY "Admins can insert traits"
+  ON public.traits FOR INSERT
+  WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
+
+CREATE POLICY "Admins can delete traits"
+  ON public.traits FOR DELETE
+  USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
 
 -- Player Details table
 CREATE TABLE public.players (

@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { Plus, Trash2, Check, Shield } from 'lucide-react';
+
+const POSITIONS = ['GK', 'CB', 'LB', 'RB', 'CDM', 'CM', 'CAM', 'LW', 'RW', 'ST'];
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -27,6 +30,11 @@ export default function AdminDashboard() {
   const [editPos, setEditPos] = useState('');
   const [editStatus, setEditStatus] = useState('');
 
+  // Traits Management State
+  const [traits, setTraits] = useState<any[]>([]);
+  const [newTraitName, setNewTraitName] = useState('');
+  const [traitMsg, setTraitMsg] = useState('');
+
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -35,6 +43,7 @@ export default function AdminDashboard() {
       } else {
         setUser(session.user);
         fetchPlayers();
+        fetchTraits();
       }
       setLoading(false);
     };
@@ -44,13 +53,46 @@ export default function AdminDashboard() {
   const fetchPlayers = async () => {
     const { data, error } = await supabase
       .from('players')
-      .select('*, profiles(username)')
+      .select('*, profiles(username, avatar_url)')
       .order('status', { ascending: false });
       
     if (data) {
       setPlayers(data);
       const available = data.filter(p => p.status === 'available');
       if (available.length > 0) setSelectedPlayer(available[0].id);
+    }
+  };
+
+  const fetchTraits = async () => {
+    const { data } = await supabase
+      .from('traits')
+      .select('*')
+      .order('name', { ascending: true });
+    if (data) setTraits(data);
+  };
+
+  const handleAddTrait = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTraitName.trim()) return;
+    setTraitMsg('');
+
+    try {
+      const { error } = await supabase.from('traits').insert({ name: newTraitName.trim() });
+      if (error) throw error;
+      setNewTraitName('');
+      setTraitMsg('Trait added successfully!');
+      fetchTraits();
+    } catch (err: any) {
+      setTraitMsg('Error: ' + err.message);
+    }
+  };
+
+  const handleDeleteTrait = async (id: string) => {
+    try {
+      await supabase.from('traits').delete().eq('id', id);
+      fetchTraits();
+    } catch (err: any) {
+      alert('Failed to delete trait: ' + err.message);
     }
   };
 
@@ -160,18 +202,20 @@ export default function AdminDashboard() {
   const availablePlayers = players.filter(p => p.status === 'available');
 
   return (
-    <div className="container animate-in">
-      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="container animate-in" style={{ marginBottom: '4rem' }}>
+      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ color: 'var(--primary)' }}>Admin Dashboard</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Configure auctions, register and manage players.</p>
+          <h2 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Shield size={28} /> Admin Dashboard
+          </h2>
+          <p style={{ color: 'var(--text-muted)' }}>Configure auctions, manage player traits, register and update players.</p>
         </div>
         <button onClick={endLiveAuction} className="btn" style={{ background: '#ef4444', color: 'white' }}>
           Force End Live Auction
         </button>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         
         {/* Start Auction Panel */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
@@ -208,22 +252,51 @@ export default function AdminDashboard() {
             <input type="password" placeholder="Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border)' }} />
             <input type="text" placeholder="Username / Player Name" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} required style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border)' }} />
             <select value={newPrimaryPos} onChange={(e) => setNewPrimaryPos(e.target.value)} required style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border)' }}>
-              <option value="GK">GK - Goalkeeper</option>
-              <option value="CB">CB - Center Back</option>
-              <option value="LB">LB - Left Back</option>
-              <option value="RB">RB - Right Back</option>
-              <option value="CM">CM - Central Midfield</option>
-              <option value="CAM">CAM - Attacking Midfield</option>
-              <option value="LW">LW - Left Wing</option>
-              <option value="RW">RW - Right Wing</option>
-              <option value="ST">ST - Striker</option>
+              {POSITIONS.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
             </select>
             <button type="submit" className="btn" style={{ background: 'white', color: 'black' }}>Register Player</button>
           </form>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
-            Note: This requires the Service Role Key to be set in your Vercel Environment Variables.
-          </p>
         </div>
+
+        {/* Trait Management Panel */}
+        <div className="glass-panel" style={{ padding: '2rem' }}>
+          <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Global Trait Manager</h3>
+          {traitMsg && <div style={{ padding: '0.75rem', marginBottom: '1rem', backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>{traitMsg}</div>}
+          
+          <form onSubmit={handleAddTrait} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            <input 
+              type="text" 
+              placeholder="New Trait (e.g. Speedster)" 
+              value={newTraitName} 
+              onChange={e => setNewTraitName(e.target.value)}
+              style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border)' }}
+            />
+            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Plus size={16} /> Add
+            </button>
+          </form>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+            {traits.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No traits available.</p>
+            ) : (
+              traits.map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.08)', borderRadius: '20px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
+                  <span>{t.name}</span>
+                  <button 
+                    onClick={() => handleDeleteTrait(t.id)} 
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* Player Management List */}
@@ -234,21 +307,27 @@ export default function AdminDashboard() {
             <div style={{ color: 'var(--text-muted)' }}>The pool is empty.</div>
           ) : (
             players.map(p => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ minWidth: '150px' }}>{p.profiles?.username}</span>
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {p.profiles?.avatar_url && (
+                    <img src={p.profiles.avatar_url} alt="Avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)' }} />
+                  )}
+                  <div>
+                    <span style={{ fontWeight: 'bold' }}>{p.profiles?.username}</span>
+                    {p.specialties && p.specialties.length > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Traits: {p.specialties.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 
                 {editingId === p.id ? (
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <select value={editPos} onChange={e => setEditPos(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', background: '#333', color: 'white', border: 'none' }}>
-                      <option value="GK">GK</option>
-                      <option value="CB">CB</option>
-                      <option value="LB">LB</option>
-                      <option value="RB">RB</option>
-                      <option value="CM">CM</option>
-                      <option value="CAM">CAM</option>
-                      <option value="LW">LW</option>
-                      <option value="RW">RW</option>
-                      <option value="ST">ST</option>
+                      {POSITIONS.map(pos => (
+                        <option key={pos} value={pos}>{pos}</option>
+                      ))}
                     </select>
                     <select value={editStatus} onChange={e => setEditStatus(e.target.value)} style={{ padding: '0.5rem', borderRadius: '4px', background: '#333', color: 'white', border: 'none' }}>
                       <option value="available">Available</option>
